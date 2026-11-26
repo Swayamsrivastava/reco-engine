@@ -1,8 +1,10 @@
-import json, time
+import json, os, time
 
-import os
-_vf = "model_repo/live/VERSION"
+_vf = "model_repo/live/VERSION"      # written by serving/promote.py when a new model is promoted
 MODEL_VERSION = open(_vf).read().strip() if os.path.exists(_vf) else "v1"
+TTL = 3600                           # cached entries expire after 1 hour
+STATS = {"hits": 0, "misses": 0}
+_mem = {}
 
 try:
     import redis
