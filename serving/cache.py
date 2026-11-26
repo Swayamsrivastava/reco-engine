@@ -1,9 +1,8 @@
 import json, time
 
-MODEL_VERSION = "v1"      # bump when you deploy a new model: old cache entries are ignored
-TTL = 3600                # entries expire after 1 hour
-STATS = {"hits": 0, "misses": 0}
-_mem = {}
+import os
+_vf = "model_repo/live/VERSION"
+MODEL_VERSION = open(_vf).read().strip() if os.path.exists(_vf) else "v1"
 
 try:
     import redis
