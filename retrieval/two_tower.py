@@ -1,7 +1,7 @@
 import numpy as np, pandas as pd, tensorflow as tf
 import tensorflow_recommenders as tfrs
 
-EMB, BATCH, EPOCHS = 64, 4096, 30     # 30 epochs because the small dataset has few ratings
+EMB, BATCH, EPOCHS = 64, 4096, 5    # 30 epochs because the small dataset has few ratings
 
 train = pd.read_parquet("data/processed/train.parquet", columns=["userId", "movieId", "label"])
 pos = train[train.label == 1]                       # only "liked" interactions

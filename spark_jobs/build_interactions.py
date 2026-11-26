@@ -8,6 +8,11 @@ spark = (SparkSession.builder.master("local[*]")
 ratings = spark.read.csv("data/raw/ratings.csv", header=True, inferSchema=True)
 movies  = spark.read.csv("data/raw/movies.csv",  header=True, inferSchema=True)
 
+SAMPLE_USERS = 20000          # set to None to use all users
+if SAMPLE_USERS:
+    sampled = ratings.select("userId").distinct().orderBy(F.rand(42)).limit(SAMPLE_USERS)
+    ratings = ratings.join(sampled, "userId")
+
 # 1) remove duplicates, keep users with at least 5 ratings
 ratings = ratings.dropDuplicates(["userId", "movieId"])
 active = ratings.groupBy("userId").count().filter("count >= 5").select("userId")
