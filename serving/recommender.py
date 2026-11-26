@@ -80,14 +80,24 @@ class Recommender:
             np.full(n, np.log1p(nr)), np.full(n, ua), np.full(n, us), avg - ua]).astype("float32")
 
     def two_stage(self, user_id, k):
+        st = {}
+        t = time.perf_counter()
         ui, seen = self.u_pos[user_id], self.seen.get(user_id, set())
         scores, rows = self.index.search(self.U[ui:ui + 1], min(2000, self.index.ntotal))   # stage 1: FAISS
         cand = [(s, r) for s, r in zip(scores[0], rows[0]) if int(self.item_ids[r]) not in seen][:N_CAND]
         sc = np.array([c[0] for c in cand], dtype="float32"); ix = np.array([c[1] for c in cand])
+        st["faiss_ms"] = (time.perf_counter() - t) * 1000
+
+        t = time.perf_counter()
         X = self._features(ui, user_id, sc, ix)
+        st["features_ms"] = (time.perf_counter() - t) * 1000
+
+        t = time.perf_counter()
         out = self.infer(**{self.in_key: tf.constant(X)})                                    # stage 2: ranker
         s = list(out.values())[0].numpy().ravel()
-        return [int(self.item_ids[ix[o]]) for o in np.argsort(-s)[:k]]
+        st["ranker_ms"] = (time.perf_counter() - t) * 1000
+        ids = [int(self.item_ids[ix[o]]) for o in np.argsort(-s)[:k]]
+        return ids, {name: round(v, 2) for name, v in st.items()}
 
     # ---- the router ----
     def recommend(self, user_id, k=10, liked=None):
@@ -97,12 +107,17 @@ class Recommender:
         hit = cache.get_cached(user_id, k, extra)
         if hit is not None:
             return {"source": "cache", "ms": round((time.time() - t0) * 1000, 2), "items": hit}
+        stages = None
         if user_id in self.u_pos and len(self.seen.get(user_id, ())) >= 5:
-            source, ids = "two_stage", self.two_stage(user_id, k)
+            source = "two_stage"
+            ids, stages = self.two_stage(user_id, k)
         elif liked:
             source, ids = "cold_content", self.content_based(liked, k, set(liked))
         else:
             source, ids = "cold_popular", self.popular(k, set())
         items = self._describe(ids)
         cache.set_cached(user_id, k, extra, items)
-        return {"source": source, "ms": round((time.time() - t0) * 1000, 2), "items": items}
+        res = {"source": source, "ms": round((time.time() - t0) * 1000, 2), "items": items}
+        if stages:
+            res["stages"] = stages
+        return res
