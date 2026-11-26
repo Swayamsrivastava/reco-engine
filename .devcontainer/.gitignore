@@ -3,4 +3,4 @@ venv/
 __pycache__/
 *.parquet
 *.npy
-*.faiss
+*.faissg
