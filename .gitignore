@@ -8,3 +8,4 @@ data/
 *.faiss
 *.zip
 .ipynb_checkpoints/
+model_repo/*/*/model.savedmodel/
