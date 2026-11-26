@@ -9,3 +9,7 @@ data/
 *.zip
 .ipynb_checkpoints/
 model_repo/*/*/model.savedmodel/
+dump.rdb
+model_repo/live/
+eval/metrics.json
+eval/champion.json
