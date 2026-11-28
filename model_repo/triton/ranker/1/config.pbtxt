@@ -1,0 +1,11 @@
+name: "ranker"
+backend: "onnxruntime"
+max_batch_size: 512
+input [
+  { name: "features" data_type: TYPE_FP32 dims: [ 11 ] }
+]
+output [
+  { name: "score" data_type: TYPE_FP32 dims: [ 1 ] }
+]
+instance_group [ { kind: KIND_CPU count: 1 } ]
+dynamic_batching { }

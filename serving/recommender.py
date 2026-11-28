@@ -1,4 +1,4 @@
-import time, numpy as np, pandas as pd, faiss, tensorflow as tf
+import os, time, numpy as np, pandas as pd, faiss, tensorflow as tf
 from serving import cache
 
 D, N_CAND = "data/processed", 300
@@ -43,6 +43,19 @@ class Recommender:
         self._model = tf.saved_model.load(ranker_dir)
         self.infer = self._model.signatures["serving_default"]
         self.in_key = list(self.infer.structured_input_signature[1].keys())[0]
+        # optional: score with the exported ONNX ranker (set RANKER_BACKEND=onnx)
+        self._ort = None
+        if os.environ.get('RANKER_BACKEND') == 'onnx':
+            import onnxruntime as ort
+            self._ort = ort.InferenceSession('model_repo/triton/ranker/1/model.onnx',
+                                             providers=['CPUExecutionProvider'])
+            self._ort_in = self._ort.get_inputs()[0].name
+
+    def _score(self, X):
+        if self._ort is not None:
+            return self._ort.run(None, {self._ort_in: X})[0].ravel()
+        out = self.infer(**{self.in_key: tf.constant(X)})
+        return list(out.values())[0].numpy().ravel()
 
     def _describe(self, ids):
         return [{"movieId": int(m), "title": self.title.get(int(m), "?")} for m in ids]
@@ -93,8 +106,8 @@ class Recommender:
         st["features_ms"] = (time.perf_counter() - t) * 1000
 
         t = time.perf_counter()
-        out = self.infer(**{self.in_key: tf.constant(X)})                                    # stage 2: ranker
-        s = list(out.values())[0].numpy().ravel()
+        out = None                                    # stage 2: ranker
+        s = self._score(X)
         st["ranker_ms"] = (time.perf_counter() - t) * 1000
         ids = [int(self.item_ids[ix[o]]) for o in np.argsort(-s)[:k]]
         return ids, {name: round(v, 2) for name, v in st.items()}
